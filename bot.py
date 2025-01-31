@@ -4,11 +4,19 @@ import asyncio
 from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, CallbackContext
 from dotenv import load_dotenv
+from flask import Flask  # Required for Render
 
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
 
-# Database setup
+# Initialize Flask app for Render compatibility
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot is running!"
+
+# Database setup (unchanged)
 def init_db():
     conn = sqlite3.connect('books.db')
     c = conn.cursor()
@@ -17,7 +25,7 @@ def init_db():
     conn.commit()
     conn.close()
 
-# Add a book to the database
+# Add a book to the database (unchanged)
 def add_book(book_title):
     conn = sqlite3.connect('books.db')
     c = conn.cursor()
@@ -25,12 +33,12 @@ def add_book(book_title):
         c.execute("INSERT INTO books (book_title) VALUES (?)", (book_title,))
         conn.commit()
         return True
-    except sqlite3.IntegrityError:  # Duplicate entry
+    except sqlite3.IntegrityError:
         return False
     finally:
         conn.close()
 
-# Check if a book exists
+# Check if a book exists (unchanged)
 def check_book(book_title):
     conn = sqlite3.connect('books.db')
     c = conn.cursor()
@@ -39,7 +47,7 @@ def check_book(book_title):
     conn.close()
     return result is not None
 
-# Telegram bot handlers
+# Telegram bot handler (unchanged)
 async def handle_message(update: Update, context: CallbackContext):
     book_title = update.message.text
     if check_book(book_title):
@@ -48,23 +56,19 @@ async def handle_message(update: Update, context: CallbackContext):
         add_book(book_title)
         await update.message.reply_text(f"✅ New book added: {book_title}")
 
+async def run_bot():
+    application = Application.builder().token(os.getenv("TELEGRAM_BOT_TOKEN")).build()
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    await application.run_polling()
+
 def main():
     init_db()
-    TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-
-    if not TELEGRAM_BOT_TOKEN:
-        raise ValueError("TELEGRAM_BOT_TOKEN environment variable not set.")
-
-    # Set Windows event loop policy (required for Windows + Python 3.8+)
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-
-    # Build the application
-    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-
-    # Start the bot
-    print("Bot is running...")
-    application.run_polling()
+    # Start Flask server in a separate thread (required for Render)
+    from threading import Thread
+    Thread(target=lambda: app.run(host='0.0.0.0', port=8080, debug=False, use_reloader=False)).start()
+    # Start the Telegram bot
+    asyncio.run(run_bot())
 
 if __name__ == "__main__":
+    # Remove Windows-specific code entirely for Render
     main()
