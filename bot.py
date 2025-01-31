@@ -1,7 +1,7 @@
 import sqlite3
 import os
 from telegram import Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+from telegram.ext import Updater, CommandHandler, MessageHandler, filters, CallbackContext  # Use 'filters' instead of 'Filters'
 from dotenv import load_dotenv  # For loading environment variables from .env file
 
 # Load environment variables from .env file
@@ -57,7 +57,7 @@ def main():
     updater = Updater(TELEGRAM_BOT_TOKEN, use_context=True)
     dp = updater.dispatcher
 
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
+    dp.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))  # Use 'filters.TEXT' and 'filters.COMMAND'
 
     updater.start_polling()
     updater.idle()
