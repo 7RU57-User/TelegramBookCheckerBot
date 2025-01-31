@@ -1,8 +1,9 @@
 import sqlite3
 import os
+import asyncio
 from telegram import Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, filters, CallbackContext  # Use 'filters' instead of 'Filters'
-from dotenv import load_dotenv  # For loading environment variables from .env file
+from telegram.ext import Application, MessageHandler, filters, CallbackContext
+from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
@@ -39,28 +40,31 @@ def check_book(book_title):
     return result is not None
 
 # Telegram bot handlers
-def handle_message(update: Update, context: CallbackContext):
-    book_title = update.message.text  # Assume the book title is sent as a message
+async def handle_message(update: Update, context: CallbackContext):
+    book_title = update.message.text
     if check_book(book_title):
-        update.message.reply_text(f"⚠️ This book already exists in the channel: {book_title}")
+        await update.message.reply_text(f"⚠️ This book already exists: {book_title}")
     else:
         add_book(book_title)
-        update.message.reply_text(f"✅ New book added: {book_title}")
+        await update.message.reply_text(f"✅ New book added: {book_title}")
 
 def main():
     init_db()
-    # Get the API token from environment variables
     TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+
     if not TELEGRAM_BOT_TOKEN:
-        raise ValueError("Please set the TELEGRAM_BOT_TOKEN environment variable.")
+        raise ValueError("TELEGRAM_BOT_TOKEN environment variable not set.")
 
-    updater = Updater(TELEGRAM_BOT_TOKEN, use_context=True)
-    dp = updater.dispatcher
+    # Set Windows event loop policy (required for Windows + Python 3.8+)
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-    dp.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))  # Use 'filters.TEXT' and 'filters.COMMAND'
+    # Build the application
+    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    updater.start_polling()
-    updater.idle()
+    # Start the bot
+    print("Bot is running...")
+    application.run_polling()
 
 if __name__ == "__main__":
     main()
